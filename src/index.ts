@@ -185,6 +185,38 @@ const QUERIES = {
     }
   `,
 
+  getClinVarVariantsInGene: `
+    query GetVariantsInGene($geneId: String, $referenceGenome: ReferenceGenomeId!) {
+      gene(gene_id: $geneId, reference_genome: $referenceGenome) {
+        clinvar_variants {
+          clinical_significance
+          clinvar_variation_id
+          gnomad {
+            exome {
+              ac
+              an
+              filters
+            }
+            genome {
+              ac
+              an
+              filters
+            }
+          }
+          gold_stars
+          hgvsc
+          hgvsp
+          in_gnomad
+          major_consequence
+          pos
+          review_status
+          transcript_id
+          variant_id
+        }
+      } 
+    }
+  `, 
+
   getVariantsInGene: `
     query GetVariantsInGene($geneId: String, $geneSymbol: String, $datasetId: DatasetId!, $referenceGenome: ReferenceGenomeId!) {
       gene(gene_id: $geneId, gene_symbol: $geneSymbol, reference_genome: $referenceGenome) {
@@ -478,6 +510,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: "get_clinvar_variants_in_gene",
+        description: "Get all ClinVar variants in a specific gene",
+        inputSchema: {
+          type: "object",
+          properties: {
+            gene_id: {
+              type: "string",
+              description: "Ensembl gene ID",
+            },
+             reference_genome: {
+              type: "string",
+              description: "Reference genome",
+              default: "GRCh38",
+            },
+          },
+          required: ["gene_id"],
+        }
+      },
+      {
         name: "get_variants_in_gene",
         description: "Get all variants in a specific gene",
         inputSchema: {
@@ -671,6 +722,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           datasetId: parseDatasetId((args.dataset as string) || "gnomad_r4"),
         });
         formattedResult = result.data?.variant || null;
+        break;
+
+      case "get_clinvar_variants_in_gene":
+        if (!args.gene_id) {
+          throw new Error("Gene_id must be provided");
+        }
+        result = await makeGraphQLRequest(QUERIES.getClinVarVariantsInGene, {
+          geneId: (args.gene_id as string) || null,
+          referenceGenome: parseReferenceGenome((args.reference_genome as string) || "GRCh38"),
+        });
+        formattedResult = result.data?.gene?.clinvar_variants || [];
         break;
 
       case "get_variants_in_gene":
